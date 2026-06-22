@@ -10,13 +10,17 @@ import com.example.data.model.SurahModel
 import com.example.data.model.UserSettings
 import com.example.data.repository.QuranRepository
 import com.example.data.service.QuranPlayerService
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.IOException
 
 sealed interface UiState<out T> {
     object Idle : UiState<Nothing>
@@ -25,18 +29,22 @@ sealed interface UiState<out T> {
     data class Error(val message: String) : UiState<Nothing>
 }
 
+// বাল্ক ডাউনলোডের ডেটা স্ট্রাকচার (অগ্রগতি অ্যানিমেশনের জন্য percentage-কে Float করা হয়েছে, compat bounds as 0f..100f)
+data class BulkDownloadState(
+    val isDownloading: Boolean = false,
+    val type: String = "TEXT", // "TEXT" অথবা "AUDIO"
+    val currentSurah: Int = 0,
+    val totalSurahs: Int = 114,
+    val currentSurahName: String = "",
+    val percentage: Float = 0f, // 0.0f থেকে 100.0f
+    val error: String? = null
+)
+
 class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
 
     // Network connectivity tracking
     private val _isOnline = MutableStateFlow(true)
     val isOnline: StateFlow<Boolean> = _isOnline.asStateFlow()
-
-    fun updateNetworkStatus(online: Boolean) {
-        _isOnline.value = online
-        if (online && (_surahListState.value is UiState.Idle || _surahListState.value is UiState.Error)) {
-            loadSurahList()
-        }
-    }
 
     // Service bridge
     private val _playerService = MutableStateFlow<QuranPlayerService?>(null)
@@ -54,24 +62,24 @@ class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
     private val _searchQuery = MutableStateFlow("")
     val searchQuery = _searchQuery.asStateFlow()
 
-    // Combined filtered Surah list
-    val filteredSurahs = combine(
-        _surahListState,
-        _searchQuery
-    ) { state, query ->
+    // Bulk download state
+    private val _bulkDownloadState = MutableStateFlow(BulkDownloadState())
+    val bulkDownloadState = _bulkDownloadState.asStateFlow()
+
+    private var statsTrackerJob: Job? = null
+
+    // Combined filtered Surah list (অ্যানিমেশন বান্ধব Flow)
+    val filteredSurahs = combine(_surahListState, _searchQuery) { state, query ->
         if (state is UiState.Success) {
-            if (query.isBlank()) {
-                state.data
-            } else {
+            if (query.isBlank()) state.data
+            else {
                 state.data.filter {
                     it.englishName.contains(query, ignoreCase = true) ||
                     it.name.contains(query) ||
                     it.englishNameTranslation.contains(query, ignoreCase = true)
                 }
             }
-        } else {
-            emptyList()
-        }
+        } else emptyList()
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Bookmarks direct Flow
@@ -82,11 +90,10 @@ class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
     val lastPlayed: StateFlow<LastPlayed?> = repository.getLastPlayed()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    // User settings Flow
+    // User settings Flow (মেমোরি লিক এবং স্লাগিশ কম্বাইন লজিক ফিক্সড)
     val userSettings: StateFlow<UserSettings> = repository.getUserSettings()
-        .combine(MutableStateFlow(UserSettings())) { saved, default ->
-            saved ?: default
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserSettings())
+        .map { it ?: UserSettings() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserSettings())
 
     val allStats: StateFlow<List<com.example.data.model.QuranStats>> = repository.getAllStatsFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -95,17 +102,27 @@ class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val mostPlayedSurah: StateFlow<com.example.data.model.SurahPlayStats?> = allSurahStats
-        .combine(MutableStateFlow(0)) { list, _ ->
+        .map { list ->
             list.filter { it.totalDurationSeconds > 0 }.maxByOrNull { it.totalDurationSeconds }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     init {
         loadSurahList()
+        setupDefaultSettings()
+        observePlayerPlaybackForStats()
+    }
+
+    fun updateNetworkStatus(online: Boolean) {
+        _isOnline.value = online
+        if (online && (_surahListState.value is UiState.Idle || _surahListState.value is UiState.Error)) {
+            loadSurahList()
+        }
+    }
+
+    private fun setupDefaultSettings() {
         viewModelScope.launch {
-            // Inserts default settings if they don't exist
             repository.getUserSettings().collect { saved ->
-                val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
-                val todayStr = sdf.format(java.util.Date())
+                val todayStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
                 if (saved == null) {
                     repository.saveUserSettings(UserSettings(installationDate = todayStr))
                 } else if (saved.installationDate.isEmpty()) {
@@ -113,44 +130,58 @@ class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
                 }
             }
         }
-        startStatsTracker()
     }
 
-    private fun startStatsTracker() {
+    // ব্যাকগ্রাউন্ড ব্যাটারি ড্রেন ও ট্র্যাকিং বাগ ফিক্স
+    private fun observePlayerPlaybackForStats() {
         viewModelScope.launch {
-            while (true) {
-                kotlinx.coroutines.delay(1000L) // tick every second
-                val service = _playerService.value
-                if (service != null && service.isPlaying.value) {
-                    val currentSurah = service.currentSurah.value
-                    if (currentSurah != null) {
-                        incrementSurahStats(currentSurah.number, currentSurah.englishName, 1L, 0)
+            _playerService.collect { service ->
+                if (service != null) {
+                    service.isPlaying.collect { playing ->
+                        if (playing) startStatsTracker() else stopStatsTracker()
                     }
-                    incrementStats(1L, 0)
+                } else {
+                    stopStatsTracker()
                 }
             }
         }
+    }
+
+    private fun startStatsTracker() {
+        if (statsTrackerJob?.isActive == true) return
+        statsTrackerJob = viewModelScope.launch {
+            while (true) {
+                delay(1000L)
+                _playerService.value?.let { service ->
+                    if (service.isPlaying.value) {
+                        service.currentSurah.value?.let { currentSurah ->
+                            incrementSurahStats(currentSurah.number, currentSurah.englishName, 1L, 0)
+                        }
+                        incrementStats(1L, 0)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun stopStatsTracker() {
+        statsTrackerJob?.cancel()
     }
 
     fun incrementSurahStats(surahNumber: Int, nameEnglish: String, durationDelta: Long, ayahsDelta: Int) {
         viewModelScope.launch {
             try {
                 repository.incrementSurahStats(surahNumber, nameEnglish, durationDelta, ayahsDelta)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            } catch (e: Exception) { e.printStackTrace() }
         }
     }
 
     fun incrementStats(durationSecondsDelta: Long, ayahsDelta: Int) {
         viewModelScope.launch {
             try {
-                val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
-                val todayStr = sdf.format(java.util.Date())
+                val todayStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
                 repository.incrementStats(todayStr, durationSecondsDelta, ayahsDelta)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            } catch (e: Exception) { e.printStackTrace() }
         }
     }
 
@@ -159,15 +190,9 @@ class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
         service?.onAyahChangedListener = { surahNum, index, enName, arName, itemInSurah ->
             saveLastPlayedTrack(surahNum, index, enName, arName, itemInSurah)
         }
-        service?.onSurahFinishedListener = {
-            playNextSurah()
-        }
-        service?.onNextSurahListener = {
-            playNextSurah()
-        }
-        service?.onPrevSurahListener = {
-            playPrevSurah()
-        }
+        service?.onSurahFinishedListener = { playNextSurah() }
+        service?.onNextSurahListener = { playNextSurah() }
+        service?.onPrevSurahListener = { playPrevSurah() }
     }
 
     fun loadSurahList() {
@@ -176,8 +201,10 @@ class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
             try {
                 val list = repository.getSurahs()
                 _surahListState.value = UiState.Success(list)
+            } catch (e: IOException) {
+                _surahListState.value = UiState.Error("নেটওয়ার্ক কানেকশন চেক করুন।")
             } catch (e: Exception) {
-                _surahListState.value = UiState.Error(e.localizedMessage ?: "নেটওয়ার্ক কানেকশন চেক করুন।")
+                _surahListState.value = UiState.Error(e.localizedMessage ?: "ত্রুটি ঘটেছে।")
             }
         }
     }
@@ -203,7 +230,6 @@ class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
         _searchQuery.value = query
     }
 
-    // Toggle Bookmarks database triggers
     fun toggleFavoriteSurah(surah: SurahModel) {
         viewModelScope.launch {
             val isFav = favoriteSurahs.value.any { it.surahNumber == surah.number }
@@ -224,52 +250,33 @@ class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
     }
 
     fun toggleFavoriteSurahFromFavorite(favorite: FavoriteSurah) {
-        viewModelScope.launch {
-            repository.deleteFavorite(favorite.surahNumber)
-        }
+        viewModelScope.launch { repository.deleteFavorite(favorite.surahNumber) }
     }
 
-    // User settings database modifications
     fun updateArabicFontSize(size: Int) {
-        viewModelScope.launch {
-            val current = userSettings.value
-            repository.saveUserSettings(current.copy(arabicFontSize = size))
-        }
+        viewModelScope.launch { repository.saveUserSettings(userSettings.value.copy(arabicFontSize = size)) }
     }
 
     fun updateTranslationFontSize(size: Int) {
-        viewModelScope.launch {
-            val current = userSettings.value
-            repository.saveUserSettings(current.copy(translationFontSize = size))
-        }
+        viewModelScope.launch { repository.saveUserSettings(userSettings.value.copy(translationFontSize = size)) }
     }
 
     fun updateTheme(themeName: String) {
-        viewModelScope.launch {
-            val current = userSettings.value
-            repository.saveUserSettings(current.copy(theme = themeName))
-        }
+        viewModelScope.launch { repository.saveUserSettings(userSettings.value.copy(theme = themeName)) }
     }
 
     fun updateCleanNeoEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            val current = userSettings.value
-            repository.saveUserSettings(current.copy(cleanNeoEnabled = enabled))
-        }
+        viewModelScope.launch { repository.saveUserSettings(userSettings.value.copy(cleanNeoEnabled = enabled)) }
     }
 
     fun updateNotificationStyle(styleName: String) {
-        viewModelScope.launch {
-            val current = userSettings.value
-            repository.saveUserSettings(current.copy(notificationStyle = styleName))
-        }
+        viewModelScope.launch { repository.saveUserSettings(userSettings.value.copy(notificationStyle = styleName)) }
     }
 
+    // Context-based setters required for widgets & notification scheduler
     fun updateWidgetStyle(styleName: String, context: android.content.Context) {
         viewModelScope.launch {
-            val current = userSettings.value
-            repository.saveUserSettings(current.copy(widgetStyle = styleName))
-            // Broadcast immediate refresh to both widgets
+            repository.saveUserSettings(userSettings.value.copy(widgetStyle = styleName))
             com.example.data.receiver.QuranPlaybackWidget.updateAllWidgets(context.applicationContext, false, null, -1)
             com.example.data.receiver.QuranHourlyVerseWidget.updateAllWidgets(context.applicationContext)
         }
@@ -277,15 +284,11 @@ class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
 
     fun updateDailyNotificationEnabled(context: android.content.Context, enabled: Boolean) {
         viewModelScope.launch {
-            val current = userSettings.value
-            val updated = current.copy(dailyNotificationEnabled = enabled)
+            val updated = userSettings.value.copy(dailyNotificationEnabled = enabled)
             repository.saveUserSettings(updated)
-            
             val appCtx = context.applicationContext
             if (enabled) {
-                com.example.data.receiver.DailyReminderScheduler.scheduleNextDailyReminder(
-                    appCtx, updated.notificationHour, updated.notificationMinute
-                )
+                com.example.data.receiver.DailyReminderScheduler.scheduleNextDailyReminder(appCtx, updated.notificationHour, updated.notificationMinute)
                 com.example.data.receiver.DailyReminderScheduler.scheduleAllDefaultAutos(appCtx)
             } else {
                 com.example.data.receiver.DailyReminderScheduler.cancelReminder(appCtx)
@@ -295,17 +298,26 @@ class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
 
     fun updateNotificationTime(context: android.content.Context, hour: Int, minute: Int) {
         viewModelScope.launch {
-            val current = userSettings.value
-            val updated = current.copy(notificationHour = hour, notificationMinute = minute)
+            val updated = userSettings.value.copy(notificationHour = hour, notificationMinute = minute)
             repository.saveUserSettings(updated)
-            
             val appCtx = context.applicationContext
             if (updated.dailyNotificationEnabled) {
-                com.example.data.receiver.DailyReminderScheduler.scheduleNextDailyReminder(
-                    appCtx, hour, minute
-                )
+                com.example.data.receiver.DailyReminderScheduler.scheduleNextDailyReminder(appCtx, hour, minute)
             }
         }
+    }
+
+    // Context-less functions requested by user template
+    fun updateWidgetStyleSetting(styleName: String) {
+        viewModelScope.launch { repository.saveUserSettings(userSettings.value.copy(widgetStyle = styleName)) }
+    }
+
+    fun updateDailyNotificationEnabledSetting(enabled: Boolean) {
+        viewModelScope.launch { repository.saveUserSettings(userSettings.value.copy(dailyNotificationEnabled = enabled)) }
+    }
+
+    fun updateNotificationTimeSetting(hour: Int, minute: Int) {
+        viewModelScope.launch { repository.saveUserSettings(userSettings.value.copy(notificationHour = hour, notificationMinute = minute)) }
     }
 
     fun toggleOfflineSurah(surahNumber: Int) {
@@ -326,28 +338,21 @@ class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
             val current = userSettings.value
             repository.saveUserSettings(current.copy(selectedQari = qariId))
             
-            // Reload the active reading view in place to fetch new audio URLs immediately!
             val currentReading = _readingSurahState.value
             if (currentReading is UiState.Success) {
                 loadSurahReadingView(currentReading.data.number)
             }
 
-            // Re-loads active audio sources in real-time if a track is playing
-            val service = _playerService.value
-            val playingSurah = service?.currentSurah?.value
-            if (service != null && playingSurah != null) {
-                val wasPlaying = service.isPlaying.value
-                val previousIndex = service.currentAyahIndex.value
-                try {
-                    // Fetch stream configurations under newly selected Qari
-                    val updatedSurah = repository.getSurahEditions(playingSurah.number, qariId)
-                    if (wasPlaying && previousIndex >= 0) {
-                        service.setSurahAndPlay(updatedSurah, previousIndex)
-                    } else {
-                        service.setLoopMode(service.loopMode.value)
-                    }
-                } catch (e: Exception) {
-                    // Ignored
+            _playerService.value?.let { service ->
+                service.currentSurah.value?.let { playingSurah ->
+                    val wasPlaying = service.isPlaying.value
+                    val previousIndex = service.currentAyahIndex.value
+                    try {
+                        val updatedSurah = repository.getSurahEditions(playingSurah.number, qariId)
+                        if (wasPlaying && previousIndex >= 0) {
+                            service.setSurahAndPlay(updatedSurah, previousIndex)
+                        }
+                    } catch (e: Exception) { e.printStackTrace() }
                 }
             }
         }
@@ -355,8 +360,8 @@ class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
 
     private fun saveLastPlayedTrack(surahNumber: Int, ayahIndex: Int, englishName: String, nameArabic: String, numberInSurah: Int) {
         viewModelScope.launch {
-            incrementStats(0L, 1) // 1 ayah read/listened
-            incrementSurahStats(surahNumber, englishName, 0L, 1) // 1 ayah read on Surah
+            incrementStats(0L, 1)
+            incrementSurahStats(surahNumber, englishName, 0L, 1)
             repository.saveLastPlayed(
                 LastPlayed(
                     surahNumber = surahNumber,
@@ -369,18 +374,14 @@ class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
         }
     }
 
-    // Dynamic Resume
     fun resumeLastPlayed(lastPlayed: LastPlayed) {
         viewModelScope.launch {
             loadSurahReadingView(lastPlayed.surahNumber)
             try {
-                // Fetch the Surah editions first
                 val qari = userSettings.value.selectedQari
                 val data = repository.getSurahEditions(lastPlayed.surahNumber, qari)
                 _playerService.value?.setSurahAndPlay(data, lastPlayed.ayahIndex)
-            } catch (e: Exception) {
-                // Ignored
-            }
+            } catch (e: Exception) { e.printStackTrace() }
         }
     }
 
@@ -389,7 +390,6 @@ class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
         val nextNum = if (current != null) {
             if (current.number < 114) current.number + 1 else 1
         } else {
-            // Fallback to last played
             lastPlayed.value?.surahNumber?.let { if (it < 114) it + 1 else 1 } ?: 1
         }
         viewModelScope.launch {
@@ -400,9 +400,7 @@ class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
                 if (_readingSurahState.value is UiState.Success) {
                     _readingSurahState.value = UiState.Success(data)
                 }
-            } catch (e: Exception) {
-                // Ignored
-            }
+            } catch (e: Exception) { e.printStackTrace() }
         }
     }
 
@@ -411,7 +409,6 @@ class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
         val prevNum = if (current != null) {
             if (current.number > 1) current.number - 1 else 114
         } else {
-            // Fallback to last played
             lastPlayed.value?.surahNumber?.let { if (it > 1) it - 1 else 114 } ?: 114
         }
         viewModelScope.launch {
@@ -422,9 +419,7 @@ class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
                 if (_readingSurahState.value is UiState.Success) {
                     _readingSurahState.value = UiState.Success(data)
                 }
-            } catch (e: Exception) {
-                // Ignored
-            }
+            } catch (e: Exception) { e.printStackTrace() }
         }
     }
 
@@ -435,9 +430,7 @@ class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
                 val qari = userSettings.value.selectedQari
                 val data = repository.getSurahEditions(number, qari)
                 _playerService.value?.setSurahAndPlay(data, index)
-            } catch (e: Exception) {
-                // Ignored
-            }
+            } catch (e: Exception) { e.printStackTrace() }
         }
     }
 
@@ -499,7 +492,6 @@ class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
         }
     }
 
-    // Perform actual real background download of Surah text structure and its ayah audios
     fun downloadSurahOffline(
         surahNumber: Int,
         qari: String,
@@ -532,7 +524,6 @@ class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
                     }
                 }
 
-                // Register it as downloaded in local settings if not already marked
                 val currentSetting = userSettings.value
                 if (!currentSetting.downloadedSurahsJson.contains(",$surahNumber,")) {
                     toggleOfflineSurah(surahNumber)
@@ -544,7 +535,6 @@ class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
         }
     }
 
-    // Delete cached local files to save disk storage space
     fun deleteDownloadedSurah(surahNumber: Int, qari: String) {
         viewModelScope.launch {
             try {
@@ -563,148 +553,75 @@ class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
                         cachedSurahFile.delete()
                     }
                 }
-                // Unregister from settings if currently marked
                 val currentSetting = userSettings.value
                 if (currentSetting.downloadedSurahsJson.contains(",$surahNumber,")) {
                     toggleOfflineSurah(surahNumber)
                 }
-            } catch (e: Exception) {
-                // Ignored
-            }
+            } catch (e: Exception) { /* Ignored */ }
         }
     }
 
-    data class BulkDownloadState(
-        val isDownloading: Boolean = false,
-        val type: String = "TEXT", // "TEXT" or "AUDIO"
-        val currentSurah: Int = 0,
-        val totalSurahs: Int = 114,
-        val currentSurahName: String = "",
-        val percentage: Int = 0,
-        val error: String? = null
-    )
-
-    private val _bulkDownloadState = MutableStateFlow(BulkDownloadState())
-    val bulkDownloadState = _bulkDownloadState.asStateFlow()
-
-    private fun updateDownloadNotification(context: android.content.Context, state: BulkDownloadState) {
-        try {
-            val notificationManager = context.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-            val channelId = "quran_downloads"
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                val channel = android.app.NotificationChannel(
-                    channelId,
-                    "Quran Bulk Downloads",
-                    android.app.NotificationManager.IMPORTANCE_LOW
-                )
-                notificationManager.createNotificationChannel(channel)
-            }
-            val builder = androidx.core.app.NotificationCompat.Builder(context, channelId)
-                .setSmallIcon(com.example.R.drawable.ic_quran_notification)
-                .setContentTitle(if (state.type == "TEXT") "কুরআন টেক্সট ডাউনলোড হচ্ছে" else "কুরআন অডিও ডাউনলোড হচ্ছে")
-                .setContentText("সূরা: ${state.currentSurahName} (${state.currentSurah}/114) • ${state.percentage}%")
-                .setPriority(androidx.core.app.NotificationCompat.PRIORITY_LOW)
-                .setOnlyAlertOnce(true)
-                .setProgress(100, state.percentage, false)
-                .setOngoing(true)
-
-            notificationManager.notify(1001, builder.build())
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    private fun completeDownloadNotification(context: android.content.Context, type: String) {
-        try {
-            val notificationManager = context.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-            val channelId = "quran_downloads"
-            val builder = androidx.core.app.NotificationCompat.Builder(context, channelId)
-                .setSmallIcon(com.example.R.drawable.ic_quran_notification)
-                .setContentTitle("ডাউনলোড সম্পন্ন হয়েছে")
-                .setContentText(if (type == "TEXT") "সকল সূরার টেক্সট ও অনুবাদ অফলাইনে সংরক্ষিত হয়েছে।" else "সকল সূরার অডিও ও টেক্সট অফলাইনে সংরক্ষিত হয়েছে।")
-                .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
-                .setProgress(0, 0, false)
-                .setOngoing(false)
-
-            notificationManager.notify(1001, builder.build())
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
-    private fun cancelDownloadNotification(context: android.content.Context, errorMsg: String) {
-        try {
-            val notificationManager = context.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-            val channelId = "quran_downloads"
-            val builder = androidx.core.app.NotificationCompat.Builder(context, channelId)
-                .setSmallIcon(com.example.R.drawable.ic_quran_notification)
-                .setContentTitle("ডাউনলোড ব্যর্থ বা বাতিল হয়েছে")
-                .setContentText("কারণ: $errorMsg")
-                .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
-                .setProgress(0, 0, false)
-                .setOngoing(false)
-
-            notificationManager.notify(1001, builder.build())
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
+    // অগ্রগতি ট্র্যাক মেকানিজম সংবলিত সম্পূর্ণ রিয়েল-টাইম বাল্ক ডাউনলোড লজিক (FIXED PROGRESS scaled to 0.0f..100.0f range)
     fun startBulkDownload(context: android.content.Context, type: String) {
         val qari = userSettings.value.selectedQari
         _bulkDownloadState.value = BulkDownloadState(
             isDownloading = true,
             type = type,
             currentSurah = 1,
-            currentSurahName = "শুরু হচ্ছে..."
+            currentSurahName = "শুরু হচ্ছে...",
+            percentage = 0.0f
         )
 
         viewModelScope.launch {
             try {
                 val allSurahs = (surahListState.value as? UiState.Success)?.data ?: repository.getSurahs()
-                val total = 114
+                val totalSurahs = 114
 
-                for (num in 1..114) {
-                    if (!_bulkDownloadState.value.isDownloading) {
-                        break // Cancelled
-                    }
+                for (num in 1..totalSurahs) {
+                    if (!_bulkDownloadState.value.isDownloading) break
 
                     val surahMeta = allSurahs.find { it.number == num }
                     val name = surahMeta?.englishName ?: "সূরা $num"
+                    val baseProgress = ((num - 1).toFloat() / totalSurahs.toFloat()) * 100f
 
-                    // Calculate state percentages
-                    val pct = ((num - 1).toFloat() / total.toFloat() * 100).toInt()
                     _bulkDownloadState.value = _bulkDownloadState.value.copy(
                         currentSurah = num,
                         currentSurahName = name,
-                        percentage = pct
+                        percentage = baseProgress
                     )
-
                     updateDownloadNotification(context, _bulkDownloadState.value)
 
-                    // Download text / json structure
                     val formattedSurah = repository.getSurahEditions(num, qari)
 
                     if (type == "AUDIO") {
                         val ayahs = formattedSurah.ayahs
                         val ayahCount = ayahs.size
-                        for (i in ayahs.indices) {
-                            if (!_bulkDownloadState.value.isDownloading) {
-                               break
+                        if (ayahCount > 0) {
+                            for (i in ayahs.indices) {
+                                if (!_bulkDownloadState.value.isDownloading) break
+                                val url = ayahs[i].audioUrl
+                                if (url.isNotBlank()) {
+                                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                        repository.downloadAudioFile(url)
+                                    }
+                                }
+                                val surahInternalProgress = (i + 1).toFloat() / ayahCount.toFloat()
+                                val totalCurrentProgress = baseProgress + (surahInternalProgress * (100f / totalSurahs.toFloat()))
+                                
+                                _bulkDownloadState.value = _bulkDownloadState.value.copy(
+                                    percentage = totalCurrentProgress.coerceIn(0.0f, 99.9f)
+                                )
+                                updateDownloadNotification(context, _bulkDownloadState.value)
                             }
-                            val url = ayahs[i].audioUrl
-                            if (url.isNotBlank()) {
-                                repository.downloadAudioFile(url)
-                            }
-                            val subPct = pct + ((i.toFloat() / ayahCount.toFloat()) * (100f / total)).toInt()
-                            _bulkDownloadState.value = _bulkDownloadState.value.copy(
-                                percentage = subPct.coerceIn(0, 99)
-                            )
-                            updateDownloadNotification(context, _bulkDownloadState.value)
                         }
+                    } else {
+                        val nextProgress = (num.toFloat() / totalSurahs.toFloat()) * 100f
+                        _bulkDownloadState.value = _bulkDownloadState.value.copy(
+                            percentage = nextProgress.coerceIn(0.0f, 99.9f)
+                        )
+                        updateDownloadNotification(context, _bulkDownloadState.value)
                     }
 
-                    // Register downloaded metadata
                     val currentSetting = userSettings.value
                     if (!currentSetting.downloadedSurahsJson.contains(",$num,")) {
                         toggleOfflineSurah(num)
@@ -714,13 +631,12 @@ class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
                 if (_bulkDownloadState.value.isDownloading) {
                     _bulkDownloadState.value = _bulkDownloadState.value.copy(
                         isDownloading = false,
-                        percentage = 100,
+                        percentage = 100.0f,
                         currentSurah = 114,
                         currentSurahName = "সম্পন্ন"
                     )
                     completeDownloadNotification(context, type)
                 }
-
             } catch (e: Exception) {
                 _bulkDownloadState.value = _bulkDownloadState.value.copy(
                     isDownloading = false,
@@ -739,6 +655,60 @@ class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
         } catch (e: Exception) {}
     }
 
+    private fun updateDownloadNotification(context: android.content.Context, state: BulkDownloadState) {
+        try {
+            val notificationManager = context.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+            val channelId = "quran_downloads"
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                val channel = android.app.NotificationChannel(channelId, "Quran Bulk Downloads", android.app.NotificationManager.IMPORTANCE_LOW)
+                notificationManager.createNotificationChannel(channel)
+            }
+            val intProgress = state.percentage.toInt()
+            val builder = androidx.core.app.NotificationCompat.Builder(context, channelId)
+                .setSmallIcon(com.example.R.drawable.ic_quran_notification)
+                .setContentTitle(if (state.type == "TEXT") "কুরআন টেক্সট ডাউনলোড হচ্ছে" else "কুরআন অডিও ডাউনলোড হচ্ছে")
+                .setContentText("সূরা: ${state.currentSurahName} (${state.currentSurah}/114) • $intProgress%")
+                .setPriority(androidx.core.app.NotificationCompat.PRIORITY_LOW)
+                .setOnlyAlertOnce(true)
+                .setProgress(100, intProgress, false)
+                .setOngoing(true)
+
+            notificationManager.notify(1001, builder.build())
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    private fun completeDownloadNotification(context: android.content.Context, type: String) {
+        try {
+            val notificationManager = context.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+            val channelId = "quran_downloads"
+            val builder = androidx.core.app.NotificationCompat.Builder(context, channelId)
+                .setSmallIcon(com.example.R.drawable.ic_quran_notification)
+                .setContentTitle("ডাউনলোড সম্পন্ন হয়েছে")
+                .setContentText(if (type == "TEXT") "সকল সূরার টেক্সট অফলাইনে সংরক্ষিত হয়েছে।" else "সকল সূরার অডিও ও টেক্সট অফলাইনে সংরক্ষিত হয়েছে।")
+                .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+                .setProgress(0, 0, false)
+                .setOngoing(false)
+
+            notificationManager.notify(1001, builder.build())
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+
+    private fun cancelDownloadNotification(context: android.content.Context, errorMsg: String) {
+        try {
+            val notificationManager = context.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+            val channelId = "quran_downloads"
+            val builder = androidx.core.app.NotificationCompat.Builder(context, channelId)
+                .setSmallIcon(com.example.R.drawable.ic_quran_notification)
+                .setContentTitle("ডাউনলোড ব্যর্থ বা বাতিল হয়েছে")
+                .setContentText("কারণ: $errorMsg")
+                .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+                .setProgress(0, 0, false)
+                .setOngoing(false)
+
+            notificationManager.notify(1001, builder.build())
+        } catch (e: Exception) { e.printStackTrace() }
+    }
+
     data class DownloadedSurahItem(
         val number: Int,
         val englishName: String,
@@ -747,15 +717,9 @@ class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
         val hasAudio: Boolean
     )
 
-    val downloadedSurahsList: kotlinx.coroutines.flow.StateFlow<List<DownloadedSurahItem>> = kotlinx.coroutines.flow.combine(
-        userSettings,
-        surahListState
-    ) { settings, surahState ->
+    val downloadedSurahsList: StateFlow<List<DownloadedSurahItem>> = combine(userSettings, surahListState) { settings, surahState ->
         val list = settings.downloadedSurahsJson
-        val downloadedNums = list.split(",")
-            .filter { it.isNotBlank() }
-            .mapNotNull { it.toIntOrNull() }
-            .distinct()
+        val downloadedNums = list.split(",").filter { it.isNotBlank() }.mapNotNull { it.toIntOrNull() }.distinct()
 
         if (surahState is UiState.Success) {
             val allSurahs = surahState.data
@@ -770,26 +734,18 @@ class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
                         arabicName = meta.name,
                         hasAudio = hasAudio
                     )
-                } else {
-                    null
-                }
+                } else null
             }
-        } else {
-            emptyList()
-        }
-    }.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), emptyList())
+        } else emptyList()
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     fun deleteDownloadedSurah(surahNumber: Int) {
         viewModelScope.launch {
             val qari = userSettings.value.selectedQari
             val currentSetting = userSettings.value
-            val list = currentSetting.downloadedSurahsJson
-            val newList = list.replace(",$surahNumber,", "")
+            val newList = currentSetting.downloadedSurahsJson.replace(",$surahNumber,", "")
             
-            // Clean from Room Database settings
             repository.saveUserSettings(currentSetting.copy(downloadedSurahsJson = newList))
-            
-            // Clean from Disk cache in IO Dispatcher
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 repository.deleteCachedSurah(surahNumber, qari)
             }
@@ -799,22 +755,13 @@ class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
     fun deleteAllDownloadedSurahs() {
         viewModelScope.launch {
             val qari = userSettings.value.selectedQari
-            val currentSetting = userSettings.value
-            val list = currentSetting.downloadedSurahsJson
+            val list = userSettings.value.downloadedSurahsJson
             
-            // Clean from Room Database settings
-            repository.saveUserSettings(currentSetting.copy(downloadedSurahsJson = ""))
-            
-            // Clean from Disk cache in IO Dispatcher
+            repository.saveUserSettings(userSettings.value.copy(downloadedSurahsJson = ""))
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                // Parse surah numbers and delete each
-                list.split(",")
-                    .filter { it.isNotBlank() }
-                    .forEach { surahStr ->
-                        surahStr.toIntOrNull()?.let { surahNum ->
-                            repository.deleteCachedSurah(surahNum, qari)
-                        }
-                    }
+                list.split(",").filter { it.isNotBlank() }.forEach { surahStr ->
+                    surahStr.toIntOrNull()?.let { repository.deleteCachedSurah(it, qari) }
+                }
             }
         }
     }
