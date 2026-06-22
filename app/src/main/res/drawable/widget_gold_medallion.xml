@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Outer gold border -->
+    <item>
+        <shape android:shape="oval">
+            <gradient
+                android:startColor="#F3D060"
+                android:centerColor="#D4AF37"
+                android:endColor="#AA7C11"
+                android:type="linear"
+                android:angle="45" />
+            <size android:width="44dp" android:height="44dp" />
+        </shape>
+    </item>
+
+    <!-- Inner gold border offset -->
+    <item android:top="2dp" android:bottom="2dp" android:left="2dp" android:right="2dp">
+        <shape android:shape="oval">
+            <solid android:color="#073A1C" /> <!-- Rich dark green contrasted inner core -->
+            <stroke
+                android:width="1dp"
+                android:color="#F3D060" />
+        </shape>
+    </item>
+</layer-list>

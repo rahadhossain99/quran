@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:background="@drawable/widget_bg_green"
+    android:gravity="center_vertical"
+    android:padding="12dp">
+
+    <!-- Premium Logo circular Container -->
+    <FrameLayout
+        android:id="@+id/widget_badge_container"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="@drawable/widget_gold_medallion">
+        
+        <ImageView
+            android:id="@+id/widget_badge_image"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_quran_notification"
+            android:contentDescription="Quran Icon" />
+    </FrameLayout>
+
+    <!-- Information column -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:layout_marginStart="14dp"
+        android:layout_marginEnd="8dp">
+
+        <TextView
+            android:id="@+id/widget_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="পবিত্র কুরআন"
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:singleLine="true"/>
+
+        <TextView
+            android:id="@+id/widget_subtitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="আজকের আয়াত তেলাওয়াত করুন"
+            android:textColor="#C2F0C2"
+            android:textSize="11sp"
+            android:layout_marginTop="3dp"
+            android:singleLine="true"/>
+    </LinearLayout>
+
+    <!-- Controls Row -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <!-- Previous button with custom vector and circular ripple -->
+        <ImageButton
+            android:id="@+id/btn_widget_prev"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:contentDescription="Previous"
+            android:background="@drawable/widget_round_btn_ripple"
+            android:src="@drawable/ic_widget_prev"
+            android:scaleType="fitCenter"
+            android:padding="8dp" />
+
+        <!-- Circular Play / Pause with custom white rounded card and green vector -->
+        <ImageButton
+            android:id="@+id/btn_widget_play"
+            android:layout_width="46dp"
+            android:layout_height="46dp"
+            android:contentDescription="Play or Pause"
+            android:background="@drawable/widget_play_btn_bg"
+            android:src="@drawable/ic_widget_play"
+            android:scaleType="fitCenter"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp"
+            android:padding="10dp" />
+
+        <!-- Next button with custom vector and circular ripple -->
+        <ImageButton
+            android:id="@+id/btn_widget_next"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:contentDescription="Next"
+            android:background="@drawable/widget_round_btn_ripple"
+            android:src="@drawable/ic_widget_next"
+            android:scaleType="fitCenter"
+            android:padding="8dp" />
+    </LinearLayout>
+</LinearLayout>

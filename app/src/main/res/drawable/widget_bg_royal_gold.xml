@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Base Layer: Imperial deep Royal Amber Gold Gradient -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:startColor="#8A6B1A"
+                android:centerColor="#4D3B0B"
+                android:endColor="#291F05"
+                android:angle="135" />
+            <corners android:radius="20dp" />
+            <stroke
+                android:width="3dp"
+                android:color="#FFD54F" /> <!-- Bright gold outer edge -->
+        </shape>
+    </item>
+
+    <!-- Layer 2: Radiant golden simulation light -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:startColor="#18FFFFFF"
+                android:endColor="#00FFFFFF"
+                android:angle="45" />
+            <corners android:radius="20dp" />
+        </shape>
+    </item>
+
+    <!-- Layer 3: Glittering Gold filigree border -->
+    <item android:left="6dp" android:right="6dp" android:top="6dp" android:bottom="6dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="15dp" />
+            <stroke
+                android:width="1dp"
+                android:color="#E0BA51" />
+        </shape>
+    </item>
+</layer-list>

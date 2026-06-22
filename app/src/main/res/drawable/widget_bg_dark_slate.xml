@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Base Layer: Imperial deep Dark Slate Green/Grey Gradient -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:startColor="#203a3a"
+                android:centerColor="#112424"
+                android:endColor="#081414"
+                android:angle="135" />
+            <corners 
+                android:topLeftRadius="28dp"
+                android:bottomRightRadius="28dp"
+                android:topRightRadius="6dp"
+                android:bottomLeftRadius="6dp" />
+            <stroke
+                android:width="2dp"
+                android:color="#355B5B" />
+        </shape>
+    </item>
+
+    <!-- Layer 2: Radiant simulation light -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:startColor="#10FFFFFF"
+                android:endColor="#00FFFFFF"
+                android:angle="45" />
+            <corners 
+                android:topLeftRadius="28dp"
+                android:bottomRightRadius="28dp"
+                android:topRightRadius="6dp"
+                android:bottomLeftRadius="6dp" />
+        </shape>
+    </item>
+
+    <!-- Layer 3: Elegant Slate border -->
+    <item android:left="5dp" android:right="5dp" android:top="5dp" android:bottom="5dp">
+        <shape android:shape="rectangle">
+            <corners 
+                android:topLeftRadius="23dp"
+                android:bottomRightRadius="23dp"
+                android:topRightRadius="4dp"
+                android:bottomLeftRadius="4dp" />
+            <stroke
+                android:width="1dp"
+                android:color="#5C9E9E" />
+        </shape>
+    </item>
+</layer-list>

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Base Deep Premium Islamic Midnight Green -->
+    <path
+        android:fillColor="#092215"
+        android:pathData="M0,0h108v108h-108z" />
+
+    <!-- Radiant Outer Soft Light Spot to simulate depth/gradient -->
+    <path
+        android:fillColor="#0D3521"
+        android:pathData="M54,54m-48,0a48,48 0,1,1 96,0a48,48 0,1,1 -96,0" />
+
+    <!-- Radiant Middle Soft Light Spot -->
+    <path
+        android:fillColor="#114C2F"
+        android:pathData="M54,54m-36,0a36,36 0,1,1 72,0a36,36 0,1,1 -72,0" />
+
+    <!-- Radiant Inner Soft Goldish-green Core -->
+    <path
+        android:fillColor="#17633D"
+        android:pathData="M54,54m-24,0a24,24 0,1,1 48,0a24,24 0,1,1 -48,0" />
+
+    <!-- Concentric Architectural Lines/Spokes for geometric weight (subtle) -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeAlpha="0.06"
+        android:strokeWidth="0.8"
+        android:pathData="M54,12 L54,96 M12,54 L96,54 M24,24 L84,84 M24,84 L84,24" />
+
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeAlpha="0.04"
+        android:strokeWidth="0.6"
+        android:pathData="M54,54m-42,0a42,42 0,1,1 84,0a42,42 0,1,1 -84,0" />
+
+</vector>

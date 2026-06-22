@@ -1,0 +1,8 @@
+{
+  "name": "Al-Quran",
+  "description": "A fast, elegantly animated Quran app featuring background playback, notification controls, and a premium, beautiful user interface.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

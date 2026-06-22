@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Base Layer: Calm Ocean Azure Teal Gradient -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:startColor="#024D7A"
+                android:centerColor="#01314F"
+                android:endColor="#001C30"
+                android:angle="135" />
+            <corners android:radius="34dp" />
+            <stroke
+                android:width="2dp"
+                android:color="#1A6796" />
+        </shape>
+    </item>
+
+    <!-- Layer 2: Soft light ray reflection overlay -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:startColor="#12FFFFFF"
+                android:endColor="#00FFFFFF"
+                android:angle="45" />
+            <corners android:radius="34dp" />
+        </shape>
+    </item>
+
+    <!-- Layer 3: Main Ice Silver/White layout frame -->
+    <item android:left="6dp" android:right="6dp" android:top="6dp" android:bottom="6dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="28dp" />
+            <stroke
+                android:width="1.2dp"
+                android:color="#96C2EC" />
+        </shape>
+    </item>
+</layer-list>

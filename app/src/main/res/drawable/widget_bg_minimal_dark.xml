@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Base Layer: Minimal dark slate and graphite black background -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:startColor="#1F2421"
+                android:centerColor="#121413"
+                android:endColor="#0B0C0C"
+                android:angle="135" />
+            <corners android:radius="14dp" />
+            <stroke
+                android:width="2.5dp"
+                android:color="#4A524E" />
+        </shape>
+    </item>
+
+    <!-- Layer 2: Radiant simulation light -->
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:startColor="#15FFFFFF"
+                android:endColor="#00FFFFFF"
+                android:angle="45" />
+            <corners android:radius="14dp" />
+        </shape>
+    </item>
+</layer-list>
