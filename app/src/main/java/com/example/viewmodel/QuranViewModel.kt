@@ -441,6 +441,64 @@ class QuranViewModel(private val repository: QuranRepository) : ViewModel() {
         }
     }
 
+    fun downloadSurahTextOnly(
+        surahNumber: Int,
+        qari: String,
+        onProgress: (Float) -> Unit,
+        onCompleted: (Boolean) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                onProgress(0.1f)
+                val surah = repository.getSurahEditions(surahNumber, qari)
+                onProgress(1.0f)
+                val currentSetting = userSettings.value
+                if (!currentSetting.downloadedSurahsJson.contains(",$surahNumber,")) {
+                    toggleOfflineSurah(surahNumber)
+                }
+                onCompleted(true)
+            } catch (e: Exception) {
+                onCompleted(false)
+            }
+        }
+    }
+
+    fun downloadSurahAudioOnly(
+        surahNumber: Int,
+        qari: String,
+        onProgress: (Float) -> Unit,
+        onCompleted: (Boolean) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val surah = repository.getSurahEditions(surahNumber, qari)
+                val ayahs = surah.ayahs
+                if (ayahs.isEmpty()) {
+                    onProgress(1.0f)
+                    onCompleted(true)
+                    return@launch
+                }
+
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    val total = ayahs.size
+                    for (i in ayahs.indices) {
+                        val url = ayahs[i].audioUrl
+                        if (url.isNotBlank()) {
+                            repository.downloadAudioFile(url)
+                        }
+                        val currentProgress = (i + 1).toFloat() / total
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            onProgress(currentProgress)
+                        }
+                    }
+                }
+                onCompleted(true)
+            } catch (e: Exception) {
+                onCompleted(false)
+            }
+        }
+    }
+
     // Perform actual real background download of Surah text structure and its ayah audios
     fun downloadSurahOffline(
         surahNumber: Int,

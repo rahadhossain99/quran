@@ -18,6 +18,33 @@ import kotlinx.coroutines.launch
 class DailyReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val pendingResult = try { goAsync() } catch (e: Exception) { null }
+        
+        if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val db = QuranDatabase.getDatabase(context)
+                    val settings = db.quranDao().getUserSettings().firstOrNull()
+                    if (settings == null || settings.dailyNotificationEnabled) {
+                        DailyReminderScheduler.scheduleNextDailyReminder(
+                            context,
+                            settings?.notificationHour ?: 9,
+                            settings?.notificationMinute ?: 0
+                        )
+                        DailyReminderScheduler.scheduleAllDefaultAutos(context)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                } finally {
+                    try {
+                        pendingResult?.finish()
+                    } catch (ex: Exception) {
+                        // Suppress
+                    }
+                }
+            }
+            return
+        }
+
         val reminderType = intent.getStringExtra("reminder_type") ?: "custom"
         
         CoroutineScope(Dispatchers.IO).launch {

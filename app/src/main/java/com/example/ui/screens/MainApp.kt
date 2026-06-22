@@ -306,7 +306,7 @@ fun MainApp(
                                                 ongoingDownloads = ongoingDownloads,
                                                 onOpenDownloadHub = { isDownloadHubOpen = true }
                                             )
-                                            "stats" -> StatsScreen(viewModel)
+                                            "stats" -> CleanStatsScreen(viewModel)
                                             "settings" -> SettingsScreen(
                                                 viewModel = viewModel,
                                                 ongoingDownloads = ongoingDownloads,
