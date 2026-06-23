@@ -448,14 +448,14 @@ fun CleanHomeScreen(
             .fillMaxSize()
             .background(bgBrush)
     ) {
-        // Decorative glowing orbs (Redesigned uniqueness)
+        // Decorative glowing orbs (Redesigned uniqueness for unified green theme)
         Box(
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .offset(x = (-40).dp, y = (-40).dp)
                 .size(250.dp)
                 .blur(80.dp)
-                .background(quranColors.primary.copy(alpha = 0.15f), CircleShape)
+                .background(quranColors.primary.copy(alpha = 0.12f), CircleShape)
         )
         Box(
             modifier = Modifier
@@ -463,7 +463,7 @@ fun CleanHomeScreen(
                 .offset(x = 80.dp, y = (-100).dp)
                 .size(200.dp)
                 .blur(60.dp)
-                .background(quranColors.accent.copy(alpha = 0.1f), CircleShape)
+                .background(quranColors.primary.copy(alpha = 0.10f), CircleShape)
         )
 
         Column(modifier = Modifier.fillMaxSize()) {
@@ -670,7 +670,7 @@ fun CleanHomeScreen(
                     modifier = Modifier
                         .width(78.dp)
                         .fillMaxHeight()
-                        .background(quranColors.surface.copy(alpha = 0.4f))
+                        .background(Color.Transparent)
                 )
 
                 // Divider line
