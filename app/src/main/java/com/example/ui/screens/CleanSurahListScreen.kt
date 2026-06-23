@@ -39,6 +39,329 @@ import com.example.data.model.UserSettings
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 
+// Juz mapping
+private val juzToSurahs = mapOf(
+    1 to listOf(1, 2),
+    2 to listOf(2),
+    3 to listOf(2, 3),
+    4 to listOf(3, 4),
+    5 to listOf(4),
+    6 to listOf(4, 5),
+    7 to listOf(5, 6),
+    8 to listOf(6, 7),
+    9 to listOf(7, 8),
+    10 to listOf(8, 9),
+    11 to listOf(9, 10, 11),
+    12 to listOf(11, 12),
+    13 to listOf(12, 13, 14),
+    14 to listOf(15, 16),
+    15 to listOf(17, 18),
+    16 to listOf(18, 19, 20),
+    17 to listOf(21, 22),
+    18 to listOf(23, 24, 25),
+    19 to listOf(25, 26, 27),
+    20 to listOf(27, 28, 29),
+    21 to listOf(29, 30, 31, 32, 33),
+    22 to listOf(33, 34, 35, 36),
+    23 to listOf(36, 37, 38, 39),
+    24 to listOf(39, 40, 41),
+    25 to listOf(41, 42, 43, 44, 45),
+    26 to listOf(46, 47, 48, 49, 50, 51),
+    27 to listOf(51, 52, 53, 54, 55, 56, 57),
+    28 to listOf(58, 59, 60, 61, 62, 63, 64, 65, 66),
+    29 to listOf(67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77),
+    30 to (78..114).toList()
+)
+
+fun getBanglaOrdinalPara(juz: Int): String {
+    val ord = when (juz) {
+        1 -> "১ম"
+        2 -> "২য়"
+        3 -> "৩য়"
+        4 -> "৪র্থ"
+        5 -> "৫ম"
+        6 -> "৬ষ্ঠ"
+        7 -> "৭ম"
+        8 -> " ৮ম"
+        9 -> "৯ম"
+        10 -> "১০ম"
+        else -> {
+            val engDigits = juz.toString()
+            val bngDigits = engDigits.map { "০১২৩৪৫৬৭৮৯"[it - '0'] }.joinToString("")
+            "${bngDigits}তম"
+        }
+    }
+    return "$ord পারা"
+}
+
+@Composable
+fun VerticalParaScroller(
+    selectedJuz: Int?,
+    onJuzSelected: (Int?) -> Unit,
+    toBanglaDigits: (String) -> String,
+    quranColors: QuranColors,
+    modifier: Modifier = Modifier
+) {
+    LazyColumn(
+        modifier = modifier,
+        contentPadding = PaddingValues(vertical = 12.dp, horizontal = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // "সব" item at the top
+        item {
+            val isSelected = selectedJuz == null
+            val bg = if (isSelected) quranColors.primary else Color.Transparent
+            val textColor = if (isSelected) Color.White else quranColors.textMain
+            val border = if (isSelected) Color.Transparent else quranColors.borderColor.copy(alpha = 0.5f)
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(bg)
+                    .border(1.dp, border, RoundedCornerShape(12.dp))
+                    .clickable { onJuzSelected(null) },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "সব পারা",
+                    color = textColor,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+
+        // 30 Paras (Juz)
+        items((1..30).toList()) { juz ->
+            val isSelected = selectedJuz == juz
+            val bg = if (isSelected) quranColors.primary.copy(alpha = 0.95f) else Color.Transparent
+            val textColor = if (isSelected) Color.White else quranColors.textMain
+            val border = if (isSelected) Color.Transparent else quranColors.borderColor.copy(alpha = 0.4f)
+            
+            val ordName = remember(juz) { getBanglaOrdinalPara(juz) }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(bg)
+                    .border(1.dp, border, RoundedCornerShape(12.dp))
+                    .clickable { onJuzSelected(juz) },
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.padding(horizontal = 4.dp)
+                ) {
+                    Text(
+                        text = ordName.split(" ")[0], // "১ম", "২৫তম", etc.
+                        color = textColor,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Black,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = "পারা",
+                        color = if (isSelected) Color.White.copy(alpha = 0.8f) else quranColors.textMuted,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CleanSurahCardRowCompact(
+    surah: SurahModel,
+    isPlaying: Boolean,
+    isAudioDownloaded: Boolean,
+    isTextDownloaded: Boolean,
+    isOfflineMode: Boolean,
+    settings: UserSettings,
+    viewModel: QuranViewModel,
+    ongoingDownloads: androidx.compose.runtime.snapshots.SnapshotStateMap<Int, Float>,
+    haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
+    quranColors: QuranColors,
+    onSurahClicked: () -> Unit
+) {
+    val ongoingTextDownloads = remember { mutableStateMapOf<Int, Float>() }
+    val isDownloadingAudio = ongoingDownloads.containsKey(surah.number)
+    val audioProgress = ongoingDownloads[surah.number] ?: 0f
+
+    val isDownloadingText = ongoingTextDownloads.containsKey(surah.number)
+    val textProgress = ongoingTextDownloads[surah.number] ?: 0f
+
+    val alphaMultiplier = if (isOfflineMode && !isTextDownloaded) 0.5f else 1f
+
+    val typeBng = if (surah.revelationType.lowercase() == "meccan") "মাক্কী" else "মাদানী"
+    val toBanglaDigits = { input: String ->
+        input.map { if (it in '0'..'9') "০১২৩৪৫৬৭৮৯"[it - '0'] else it }.joinToString("")
+    }
+    val ayahsBng = toBanglaDigits(surah.numberOfAyahs.toString())
+    val numberBng = toBanglaDigits(surah.number.toString())
+
+    val cardBg = if (isPlaying) quranColors.primary.copy(alpha = 0.04f) else quranColors.surface
+    val cardBorder = if (isPlaying) quranColors.primary.copy(alpha = 0.25f) else quranColors.borderColor.copy(alpha = 0.4f)
+
+    Card(
+        onClick = {
+            if (!isOfflineMode || isTextDownloaded) {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onSurahClicked()
+            }
+        },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = cardBg),
+        border = BorderStroke(1.dp, cardBorder),
+        elevation = CardDefaults.cardElevation(0.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 10.dp, vertical = 3.dp)
+            .graphicsLayer { alpha = alphaMultiplier }
+    ) {
+        Row(
+            modifier = Modifier.padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Number Box
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (isPlaying) quranColors.primary else quranColors.background)
+                    .border(1.dp, if (isPlaying) Color.Transparent else quranColors.borderColor, RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isPlaying) {
+                     LiveAudioWaveform(Color.White, Modifier.height(11.dp))
+                } else {
+                    Text(numberBng, color = quranColors.textMain, fontWeight = FontWeight.Black, fontSize = 12.sp)
+                }
+            }
+
+            Spacer(modifier = Modifier.width(10.dp))
+
+            // Details
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    surah.englishName,
+                    color = quranColors.textMain,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    "$typeBng • $ayahsBng আয়াত",
+                    color = quranColors.textMuted,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            // Downloads Compact
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                DownloadActionNodeCompact(
+                    icon = Icons.Rounded.Article,
+                    isDownloaded = isTextDownloaded,
+                    isDownloading = isDownloadingText,
+                    progress = textProgress,
+                    isOfflineMode = isOfflineMode,
+                    quranColors = quranColors,
+                    haptic = haptic,
+                    onDownloadRequest = {
+                        ongoingTextDownloads[surah.number] = 0.1f
+                        viewModel.downloadSurahTextOnly(
+                            surahNumber = surah.number,
+                            qari = settings.selectedQari,
+                            onProgress = { prg -> ongoingTextDownloads[surah.number] = prg },
+                            onCompleted = { ongoingTextDownloads.remove(surah.number) }
+                        )
+                    }
+                )
+
+                DownloadActionNodeCompact(
+                    icon = Icons.Rounded.Headphones,
+                    isDownloaded = isAudioDownloaded,
+                    isDownloading = isDownloadingAudio,
+                    progress = audioProgress,
+                    isOfflineMode = isOfflineMode,
+                    quranColors = quranColors,
+                    haptic = haptic,
+                    onDownloadRequest = {
+                        ongoingDownloads[surah.number] = 0.01f
+                        viewModel.downloadSurahAudioOnly(
+                            surahNumber = surah.number,
+                            qari = settings.selectedQari,
+                            onProgress = { prg -> ongoingDownloads[surah.number] = prg },
+                            onCompleted = { ongoingDownloads.remove(surah.number) }
+                        )
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun DownloadActionNodeCompact(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    isDownloaded: Boolean,
+    isDownloading: Boolean,
+    progress: Float,
+    isOfflineMode: Boolean,
+    quranColors: QuranColors,
+    haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
+    onDownloadRequest: () -> Unit
+) {
+    if (isDownloading) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(24.dp)) {
+            CircularProgressIndicator(progress = { progress }, color = quranColors.primary, strokeWidth = 1.5.dp, modifier = Modifier.fillMaxSize())
+            Icon(icon, null, tint = quranColors.primary, modifier = Modifier.size(10.dp))
+        }
+    } else if (isDownloaded) {
+        Box(
+            modifier = Modifier.size(24.dp).clip(CircleShape).background(quranColors.primary.copy(alpha = 0.1f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Rounded.CheckCircle, "Downloaded", tint = quranColors.primary, modifier = Modifier.size(14.dp))
+        }
+    } else {
+        if (!isOfflineMode) {
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(quranColors.surface)
+                    .border(1.dp, quranColors.borderColor, CircleShape)
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onDownloadRequest()
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, "Download", tint = quranColors.textMuted, modifier = Modifier.size(11.dp))
+            }
+        } else {
+            Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+                Icon(icon, "Offline", tint = quranColors.textMuted.copy(alpha=0.3f), modifier = Modifier.size(11.dp))
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CleanHomeScreen(
@@ -66,14 +389,28 @@ fun CleanHomeScreen(
         listOf("সব সূরা" to "all", "মাক্কী" to "meccan", "মাদানী" to "medinan", "অফলাইন" to "offline")
     }
 
-    val finalDisplayList = remember(filteredList, selectedFilter, downloadedJson) {
-        filteredList.filter { surah ->
+    var selectedJuz by remember { mutableStateOf<Int?>(null) }
+
+    val toBanglaDigits = remember {
+        { input: String ->
+            input.map { if (it in '0'..'9') "০১২৩৪৫৬৭৮৯"[it - '0'] else it }.joinToString("")
+        }
+    }
+
+    val finalDisplayList = remember(filteredList, selectedFilter, downloadedJson, selectedJuz) {
+        val baseList = filteredList.filter { surah ->
             when (selectedFilter) {
                 "meccan" -> surah.revelationType.lowercase() == "meccan"
                 "medinan" -> surah.revelationType.lowercase() == "medinan"
                 "offline" -> downloadedJson.contains(",${surah.number},")
                 else -> true
             }
+        }
+        if (selectedJuz != null) {
+            val surahsInJuz = juzToSurahs[selectedJuz] ?: emptyList()
+            baseList.filter { surahsInJuz.contains(it.number) }
+        } else {
+            baseList
         }
     }
 
@@ -122,17 +459,14 @@ fun CleanHomeScreen(
                 .background(quranColors.accent.copy(alpha = 0.1f), CircleShape)
         )
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 120.dp, top = 16.dp)
-        ) {
-            // Header Section
-            item {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.padding(top = 16.dp)) {
+                // Header Section
                 Column(modifier = Modifier.padding(horizontal = 24.dp)) {
                     Text(
                         text = celestialGreeting.first,
                         color = quranColors.primary,
-                        fontSize = 14.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp
                     )
@@ -140,28 +474,29 @@ fun CleanHomeScreen(
                     Text(
                         text = celestialGreeting.second,
                         color = quranColors.textMain,
-                        fontSize = 22.sp,
+                        fontSize = 19.sp,
                         fontWeight = FontWeight.Black,
                         fontFamily = FontFamily.SansSerif,
-                        lineHeight = 30.sp
+                        lineHeight = 25.sp
                     )
                 }
-                Spacer(modifier = Modifier.height(24.dp))
-            }
+                Spacer(modifier = Modifier.height(16.dp))
 
-            // Minimalist Search
-            item {
+                // Minimalist Search
                 Box(modifier = Modifier.padding(horizontal = 20.dp)) {
                     TextField(
                         value = searchQuery,
                         onValueChange = { viewModel.setSearchQuery(it) },
-                        placeholder = { Text("কী খুঁজছেন?", color = quranColors.textMuted.copy(alpha = 0.6f), fontSize = 15.sp) },
-                        leadingIcon = { Icon(Icons.Rounded.Search, null, tint = quranColors.primary) },
+                        placeholder = { Text("কী খুঁজছেন?", color = quranColors.textMuted.copy(alpha = 0.6f), fontSize = 14.sp) },
+                        leadingIcon = { Icon(Icons.Rounded.Search, null, tint = quranColors.primary, modifier = Modifier.size(20.dp)) },
                         trailingIcon = {
                             if (searchQuery.isNotEmpty()) {
                                 Icon(
-                                    Icons.Rounded.Close, "Clear",
-                                    modifier = Modifier.clickable { viewModel.setSearchQuery("") },
+                                    imageVector = Icons.Rounded.Close,
+                                    contentDescription = "Clear",
+                                    modifier = Modifier
+                                        .size(18.dp)
+                                        .clickable { viewModel.setSearchQuery("") },
                                     tint = quranColors.textMuted
                                 )
                             }
@@ -175,79 +510,76 @@ fun CleanHomeScreen(
                             focusedTextColor = quranColors.textMain
                         ),
                         singleLine = true,
-                        shape = RoundedCornerShape(20.dp),
+                        shape = RoundedCornerShape(16.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .border(1.dp, quranColors.primary.copy(alpha = 0.1f), RoundedCornerShape(20.dp))
+                            .height(52.dp)
+                            .border(1.dp, quranColors.primary.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
                     )
                 }
-                Spacer(modifier = Modifier.height(20.dp))
-            }
+                Spacer(modifier = Modifier.height(14.dp))
 
-            // Player / Quick Action
-            if (serviceSurah != null) {
-                item {
+                // Player / Quick Action
+                if (serviceSurah != null) {
                     val surahNumStr = serviceSurah.number.toString().map { "০১২৩৪৫৬৭৮৯"[it - '0'] }.joinToString("")
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 20.dp)
-                            .clip(RoundedCornerShape(20.dp)),
-                        colors = CardDefaults.cardColors(containerColor = quranColors.primary.copy(alpha = 0.1f)),
-                        border = BorderStroke(1.dp, quranColors.primary.copy(alpha = 0.3f))
+                            .clip(RoundedCornerShape(16.dp)),
+                        colors = CardDefaults.cardColors(containerColor = quranColors.primary.copy(alpha = 0.08f)),
+                        border = BorderStroke(1.dp, quranColors.primary.copy(alpha = 0.25f))
                     ) {
                         Row(
-                            modifier = Modifier.padding(16.dp),
+                            modifier = Modifier.padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             // Pulsing play disc
                             Box(
                                 modifier = Modifier
-                                    .size(48.dp)
+                                    .size(38.dp)
                                     .clip(CircleShape)
                                     .background(quranColors.primary),
                                 contentAlignment = Alignment.Center
                             ) {
-                                LiveAudioWaveform(Color.White, Modifier.height(14.dp))
+                                LiveAudioWaveform(Color.White, Modifier.height(12.dp))
                             }
-                            Spacer(modifier = Modifier.width(16.dp))
+                            Spacer(modifier = Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = serviceSurah.englishName,
                                     color = quranColors.textMain,
-                                    fontSize = 16.sp,
+                                    fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
                                     text = "বর্তমানে চলছে • সূরা $surahNumStr",
                                     color = quranColors.textMuted,
-                                    fontSize = 12.sp,
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.Medium
                                 )
                             }
                             // Controls
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                IconButton(onClick = { playerService?.playPrev() }, modifier = Modifier.size(36.dp).background(quranColors.surface, CircleShape)) {
-                                    Icon(Icons.Rounded.SkipPrevious, null, tint = quranColors.textMain, modifier = Modifier.size(20.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                IconButton(onClick = { playerService?.playPrev() }, modifier = Modifier.size(32.dp).background(quranColors.surface, CircleShape)) {
+                                    Icon(Icons.Rounded.SkipPrevious, null, tint = quranColors.textMain, modifier = Modifier.size(16.dp))
                                 }
-                                IconButton(onClick = { playerService?.togglePlayPause() }, modifier = Modifier.size(36.dp).background(quranColors.primary, CircleShape)) {
-                                    Icon(if (isServicePlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                                IconButton(onClick = { playerService?.togglePlayPause() }, modifier = Modifier.size(32.dp).background(quranColors.primary, CircleShape)) {
+                                    Icon(if (isServicePlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, null, tint = Color.White, modifier = Modifier.size(16.dp))
                                 }
-                                IconButton(onClick = { playerService?.playNext() }, modifier = Modifier.size(36.dp).background(quranColors.surface, CircleShape)) {
-                                    Icon(Icons.Rounded.SkipNext, null, tint = quranColors.textMain, modifier = Modifier.size(20.dp))
+                                IconButton(onClick = { playerService?.playNext() }, modifier = Modifier.size(32.dp).background(quranColors.surface, CircleShape)) {
+                                    Icon(Icons.Rounded.SkipNext, null, tint = quranColors.textMain, modifier = Modifier.size(16.dp))
                                 }
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
                 }
-            }
 
-            // Segmented Filters
-            item {
+                // Segmented Filters
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     filterOptions.forEach { opt ->
                         val selected = selectedFilter == opt.second
@@ -256,77 +588,153 @@ fun CleanHomeScreen(
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .height(40.dp)
-                                .clip(RoundedCornerShape(12.dp))
+                                .height(36.dp)
+                                .clip(RoundedCornerShape(10.dp))
                                 .background(bg)
-                                .border(1.dp, if (selected) quranColors.primary else quranColors.borderColor, RoundedCornerShape(12.dp))
+                                .border(1.dp, if (selected) quranColors.primary else quranColors.borderColor, RoundedCornerShape(10.dp))
                                 .clickable {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     selectedFilter = opt.second
                                 },
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(opt.first, color = textColor, fontSize = 13.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium)
+                            Text(opt.first, color = textColor, fontSize = 12.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium)
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
             }
 
-            // List Content
-            when (surahListState) {
-                is UiState.Loading -> {
-                    item {
-                        Box(modifier = Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = quranColors.primary)
-                        }
-                    }
-                }
-                is UiState.Success -> {
-                    if (finalDisplayList.isEmpty()) {
-                        item {
-                            Column(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 60.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Icon(Icons.Rounded.SearchOff, null, tint = quranColors.textMuted.copy(alpha = 0.3f), modifier = Modifier.size(64.dp))
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Text("কিছু পাওয়া যায়নি", color = quranColors.textMuted, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            // Split content: VerticalParaScroller (left) + Surah items (right)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            ) {
+                VerticalParaScroller(
+                    selectedJuz = selectedJuz,
+                    onJuzSelected = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        selectedJuz = it
+                    },
+                    toBanglaDigits = toBanglaDigits,
+                    quranColors = quranColors,
+                    modifier = Modifier
+                        .width(78.dp)
+                        .fillMaxHeight()
+                        .background(quranColors.surface.copy(alpha = 0.4f))
+                )
+
+                // Divider line
+                Box(
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .width(1.dp)
+                        .background(quranColors.borderColor.copy(alpha = 0.4f))
+                )
+
+                // Right Pane: list of Surahs matching JUZ filter & Segmented selector
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                ) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 120.dp, top = 6.dp)
+                    ) {
+                        // Small indicator of matching Para
+                        if (selectedJuz != null) {
+                            item {
+                                val matchCountBng = toBanglaDigits(finalDisplayList.size.toString())
+                                val paraNameStr = remember(selectedJuz) { getBanglaOrdinalPara(selectedJuz!!) }
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(quranColors.primary.copy(alpha = 0.05f))
+                                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = "$paraNameStr • $matchCountBng সূরা",
+                                        color = quranColors.primary,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Icon(
+                                        Icons.Rounded.Close,
+                                        contentDescription = "Clear Juz filter",
+                                        tint = quranColors.primary,
+                                        modifier = Modifier
+                                            .size(14.dp)
+                                            .clickable {
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                selectedJuz = null
+                                            }
+                                    )
+                                }
                             }
                         }
-                    } else {
-                        items(finalDisplayList, key = { it.number }) { surah ->
-                            val isPlaying = isServicePlaying && serviceSurah?.number == surah.number
-                            val isAudioDownloaded = downloadedAudioSet.contains(surah.number)
-                            val isTextDownloaded = downloadedJson.contains(",${surah.number},")
 
-                            CleanSurahCardRow(
-                                surah = surah,
-                                isPlaying = isPlaying,
-                                isAudioDownloaded = isAudioDownloaded,
-                                isTextDownloaded = isTextDownloaded,
-                                isOfflineMode = !isOnline,
-                                settings = settings,
-                                viewModel = viewModel,
-                                ongoingDownloads = ongoingDownloads,
-                                haptic = haptic,
-                                quranColors = quranColors,
-                                onSurahClicked = { viewModel.loadSurahReadingView(surah.number) }
-                            )
+                        when (surahListState) {
+                            is UiState.Loading -> {
+                                item {
+                                    Box(modifier = Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
+                                        CircularProgressIndicator(color = quranColors.primary)
+                                    }
+                                }
+                            }
+                            is UiState.Success -> {
+                                if (finalDisplayList.isEmpty()) {
+                                    item {
+                                        Column(
+                                            modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally
+                                        ) {
+                                            Icon(Icons.Rounded.SearchOff, null, tint = quranColors.textMuted.copy(alpha = 0.3f), modifier = Modifier.size(48.dp))
+                                            Spacer(modifier = Modifier.height(10.dp))
+                                            Text("কোনো সূরা মেলেনি", color = quranColors.textMuted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                                        }
+                                    }
+                                } else {
+                                    items(finalDisplayList, key = { it.number }) { surah ->
+                                        val isPlaying = isServicePlaying && serviceSurah?.number == surah.number
+                                        val isAudioDownloaded = downloadedAudioSet.contains(surah.number)
+                                        val isTextDownloaded = downloadedJson.contains(",${surah.number},")
+
+                                        CleanSurahCardRowCompact(
+                                            surah = surah,
+                                            isPlaying = isPlaying,
+                                            isAudioDownloaded = isAudioDownloaded,
+                                            isTextDownloaded = isTextDownloaded,
+                                            isOfflineMode = !isOnline,
+                                            settings = settings,
+                                            viewModel = viewModel,
+                                            ongoingDownloads = ongoingDownloads,
+                                            haptic = haptic,
+                                            quranColors = quranColors,
+                                            onSurahClicked = { viewModel.loadSurahReadingView(surah.number) }
+                                        )
+                                    }
+                                }
+                            }
+                            is UiState.Error -> {
+                                item {
+                                    Text(
+                                        text = (surahListState as UiState.Error).message,
+                                        color = quranColors.accent,
+                                        modifier = Modifier.fillMaxWidth().padding(20.dp),
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                            else -> {}
                         }
                     }
                 }
-                is UiState.Error -> {
-                    item {
-                        Text(
-                            text = (surahListState as UiState.Error).message,
-                            color = quranColors.accent,
-                            modifier = Modifier.fillMaxWidth().padding(20.dp),
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-                else -> {}
             }
         }
     }
