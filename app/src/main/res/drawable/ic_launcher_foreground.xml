@@ -4,60 +4,36 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    
-    <!-- Outer Octagram/Star Medallion Border (Golden Shading Accent) - Fits elegantly within 66dp zone -->
-    <path
-        android:fillColor="#E5A91A"
-        android:pathData="M54,20 L64,30 L78,30 L78,44 L88,54 L78,64 L78,78 L64,78 L54,88 L44,78 L30,78 L30,64 L20,54 L30,44 L30,30 L44,30 Z" />
 
-    <!-- Secondary Inner Gold Octagram layer for depth -->
-    <path
-        android:fillColor="#F6C83E"
-        android:pathData="M54,23 L63,32 L75,32 L75,44 L84,54 L75,64 L75,76 L63,76 L54,85 L45,76 L33,76 L33,64 L24,54 L33,44 L33,32 L45,32 Z" />
-
-    <!-- Dark Inner Core Shield to pop the open book -->
-    <path
-        android:fillColor="#1B7C07"
-        android:pathData="M54,26 L62,34 L72,34 L72,44 L80,54 L72,64 L72,74 L62,74 L54,82 L46,74 L36,74 L36,64 L28,54 L36,44 L36,34 L46,34 Z" />
-
-    <!-- Quran Stand (Rehal) Base in elegant dark gold wood tone -->
-    <path
-        android:fillColor="#B2800D"
-        android:pathData="M38,62 L70,62 L63,68 L45,68 Z" />
-
-    <path
-        android:fillColor="#725102"
-        android:pathData="M48,68 L60,68 L57,71 L51,71 Z" />
-
-    <!-- Open Holy Quran Book Pages (Slightly curved for modern 3D appearance) -->
-    <!-- Left Page (Crisp White Accent) -->
+    <!-- Rehal (Quran Stand) Base in solid pure white -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M52,43 C45,43 41,45 34,47 C34,47 34,53 34,61 C41,59 45,57 52,57 Z" />
-    
-    <!-- Right Page (Crisp White Accent) -->
+        android:pathData="M28,64 L80,64 L72,74 L36,74 Z" />
+
+    <!-- Open Holy Quran Book (Scale: X from 20 to 88, Y from 32 to 64) -->
+    <!-- Left Page - Thick premium white canvas -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M56,43 C63,43 67,45 74,47 C74,47 74,53 74,61 C67,59 63,57 56,57 Z" />
+        android:pathData="M52,32 C38,32 30,35 20,38 C20,38 20,49 20,62 C30,59 38,56 52,56 Z" />
+    
+    <!-- Right Page - Thick premium white canvas -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M56,32 C70,32 78,35 88,38 C88,38 88,49 88,62 C78,59 70,56 56,56 Z" />
 
-    <!-- Golden Spine Ribbon (Quran Marker) in center -->
+    <!-- Central Emblem: Elegant Green Circle on top of pages -->
+    <path
+        android:fillColor="#35A901"
+        android:pathData="M54,46m-8,0a8,8 0,1,1 16,0a8,8 0,1,1 -16,0" />
+
+    <!-- Pure gold elegant star of guidance inside the green emblem -->
     <path
         android:fillColor="#FFD700"
-        android:pathData="M53.5,43 L54.5,43 L54.5,66 L53.5,66 Z" />
+        android:pathData="M54,42 L55.8,45.5 L59.5,45.5 L56.5,47.8 L57.8,51.2 L54,49 L50.2,51.2 L51.5,47.8 L48.5,45.5 L52.2,45.5 Z" />
 
-    <!-- Central Glowing Golden Sun of Wisdom (Middle circle of pages) -->
+    <!-- Spine ribbon hanging down -->
     <path
-        android:fillColor="#FFF176"
-        android:pathData="M54,50m-4,0a4,4 0,1,1 8,0a4,4 0,1,1 -8,0" />
-
-    <!-- Detailed Golden Star inside the Sun -->
-    <path
-        android:fillColor="#F6C83E"
-        android:pathData="M54,48 L55.2,50.3 L57.8,50.3 L55.7,51.8 L56.6,54.2 L54,52.7 L51.4,54.2 L52.3,51.8 L50.2,50.3 L52.8,50.3 Z" />
-
-    <!-- Fine Geometric Gold Dots on Left and Right Pages to represent script -->
-    <path
-        android:fillColor="#E5A91A"
-        android:pathData="M38,51 h10 v1 h-10 z M38,54 h8 v1 h-8 z M60,51 h10 v1 h-10 z M60,54 h8 v1 h-8 z" />
+        android:fillColor="#FFD700"
+        android:pathData="M53.5,32 L54.5,32 L54.5,68 L53.5,68 Z" />
 
 </vector>

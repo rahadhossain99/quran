@@ -82,7 +82,7 @@ fun getBanglaOrdinalPara(juz: Int): String {
         5 -> "৫ম"
         6 -> "৬ষ্ঠ"
         7 -> "৭ম"
-        8 -> " ৮ম"
+        8 -> "৮ম"
         9 -> "৯ম"
         10 -> "১০ম"
         else -> {
@@ -448,22 +448,34 @@ fun CleanHomeScreen(
             .fillMaxSize()
             .background(bgBrush)
     ) {
-        // Decorative glowing orbs (Redesigned uniqueness for unified green theme)
+        // Decorative glowing orbs (Using robust radial gradients to prevent software rendering artifacts and vertical color splits)
         Box(
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(x = (-40).dp, y = (-40).dp)
-                .size(250.dp)
-                .blur(80.dp)
-                .background(quranColors.primary.copy(alpha = 0.12f), CircleShape)
+                .offset(x = (-80).dp, y = (-80).dp)
+                .size(280.dp)
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            quranColors.primary.copy(alpha = 0.15f),
+                            Color.Transparent
+                        )
+                    )
+                )
         )
         Box(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .offset(x = 80.dp, y = (-100).dp)
-                .size(200.dp)
-                .blur(60.dp)
-                .background(quranColors.primary.copy(alpha = 0.10f), CircleShape)
+                .size(240.dp)
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            quranColors.primary.copy(alpha = 0.12f),
+                            Color.Transparent
+                        )
+                    )
+                )
         )
 
         Column(modifier = Modifier.fillMaxSize()) {
