@@ -5,24 +5,24 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
     
-    <!-- Base Deep Premium Islamic Midnight Green -->
+    <!-- Base Premium Vibrant Islamic Leaf Green -->
     <path
-        android:fillColor="#092215"
+        android:fillColor="#35A901"
         android:pathData="M0,0h108v108h-108z" />
 
-    <!-- Radiant Outer Soft Light Spot to simulate depth/gradient -->
+    <!-- Radiant Outer Soft Light Spot to simulate depth -->
     <path
-        android:fillColor="#0D3521"
+        android:fillColor="#3CBF02"
         android:pathData="M54,54m-48,0a48,48 0,1,1 96,0a48,48 0,1,1 -96,0" />
 
     <!-- Radiant Middle Soft Light Spot -->
     <path
-        android:fillColor="#114C2F"
+        android:fillColor="#44D104"
         android:pathData="M54,54m-36,0a36,36 0,1,1 72,0a36,36 0,1,1 -72,0" />
 
-    <!-- Radiant Inner Soft Goldish-green Core -->
+    <!-- Radiant Inner Soft Leaf-green Glow Core -->
     <path
-        android:fillColor="#17633D"
+        android:fillColor="#4EEB07"
         android:pathData="M54,54m-24,0a24,24 0,1,1 48,0a24,24 0,1,1 -48,0" />
 
     <!-- Concentric Architectural Lines/Spokes for geometric weight (subtle) -->

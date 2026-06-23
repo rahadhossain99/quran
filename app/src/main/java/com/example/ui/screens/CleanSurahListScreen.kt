@@ -271,7 +271,7 @@ fun CleanSurahCardRowCompact(
             // Downloads Compact
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 DownloadActionNodeCompact(
                     icon = Icons.Rounded.Article,
@@ -568,12 +568,12 @@ fun CleanHomeScreen(
                             }
                             // Controls with premium tactile styling and expanded spacedBy for ultimate mobile responsiveness
                             Row(
-                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(32.dp)
+                                        .size(36.dp)
                                         .clip(CircleShape)
                                         .background(quranColors.surface)
                                         .border(1.dp, quranColors.borderColor.copy(alpha = 0.6f), CircleShape)
@@ -584,12 +584,12 @@ fun CleanHomeScreen(
                                         imageVector = Icons.Rounded.SkipPrevious,
                                         contentDescription = "Previous Surah",
                                         tint = quranColors.textMain,
-                                        modifier = Modifier.size(16.dp)
+                                        modifier = Modifier.size(18.dp)
                                     )
                                 }
                                 Box(
                                     modifier = Modifier
-                                        .size(36.dp) // Beautiful visual hierarchy with a slightly larger central Play action
+                                        .size(42.dp) // Beautiful visual hierarchy with a slightly larger central Play action
                                         .clip(CircleShape)
                                         .background(quranColors.primary)
                                         .clickable { playerService?.togglePlayPause() },
@@ -599,12 +599,12 @@ fun CleanHomeScreen(
                                         imageVector = if (isServicePlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                                         contentDescription = "Toggle Play Pause",
                                         tint = Color.White,
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(22.dp)
                                     )
                                 }
                                 Box(
                                     modifier = Modifier
-                                        .size(32.dp)
+                                        .size(36.dp)
                                         .clip(CircleShape)
                                         .background(quranColors.surface)
                                         .border(1.dp, quranColors.borderColor.copy(alpha = 0.6f), CircleShape)
@@ -615,7 +615,7 @@ fun CleanHomeScreen(
                                         imageVector = Icons.Rounded.SkipNext,
                                         contentDescription = "Next Surah",
                                         tint = quranColors.textMain,
-                                        modifier = Modifier.size(16.dp)
+                                        modifier = Modifier.size(18.dp)
                                     )
                                 }
                             }

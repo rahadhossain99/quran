@@ -17,7 +17,7 @@
 
     <!-- Dark Inner Core Shield to pop the open book -->
     <path
-        android:fillColor="#0A2818"
+        android:fillColor="#1B7C07"
         android:pathData="M54,26 L62,34 L72,34 L72,44 L80,54 L72,64 L72,74 L62,74 L54,82 L46,74 L36,74 L36,64 L28,54 L36,44 L36,34 L46,34 Z" />
 
     <!-- Quran Stand (Rehal) Base in elegant dark gold wood tone -->
