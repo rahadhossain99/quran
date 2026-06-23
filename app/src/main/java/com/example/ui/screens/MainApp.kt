@@ -481,7 +481,7 @@ fun HeaderBlock(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(quranColors.surface)
+            .background(Color.Transparent)
             .statusBarsPadding()
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically

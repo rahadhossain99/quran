@@ -425,16 +425,23 @@ fun CleanHomeScreen(
         }
     }
 
-    // Parallax & immersive brushes
-    val bgBrush = Brush.linearGradient(
-        colors = listOf(
-            quranColors.background,
-            if (quranColors.isDark) Color(0xFF0F172A) else Color(0xFFF8FAFC),
-            quranColors.background
-        ),
-        start = Offset(0f, 0f),
-        end = Offset(1000f, 1000f)
-    )
+    // Parallax & immersive brushes - beautifully tailored to light, sepia, and dark themes
+    val bgBrush = remember(quranColors) {
+        val middleColor = if (quranColors.isDark) {
+            Color(0xFF111827) // Soft dark indigo-slate for deep midnight feeling
+        } else if (quranColors.background == Color(0xFFF4ECD8)) {
+            Color(0xFFFAF2DE) // Warm glowing cream for Sepia theme (0xFFF4ECD8 is Sepia background)
+        } else {
+            Color(0xFFFFFFFF) // Pure sparkling white for Light theme
+        }
+        Brush.verticalGradient(
+            colors = listOf(
+                quranColors.background,
+                middleColor,
+                quranColors.background
+            )
+        )
+    }
 
     Box(
         modifier = Modifier
@@ -559,16 +566,57 @@ fun CleanHomeScreen(
                                     fontWeight = FontWeight.Medium
                                 )
                             }
-                            // Controls
-                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                IconButton(onClick = { playerService?.playPrev() }, modifier = Modifier.size(32.dp).background(quranColors.surface, CircleShape)) {
-                                    Icon(Icons.Rounded.SkipPrevious, null, tint = quranColors.textMain, modifier = Modifier.size(16.dp))
+                            // Controls with premium tactile styling and expanded spacedBy for ultimate mobile responsiveness
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .background(quranColors.surface)
+                                        .border(1.dp, quranColors.borderColor.copy(alpha = 0.6f), CircleShape)
+                                        .clickable { playerService?.playPrev() },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.SkipPrevious,
+                                        contentDescription = "Previous Surah",
+                                        tint = quranColors.textMain,
+                                        modifier = Modifier.size(16.dp)
+                                    )
                                 }
-                                IconButton(onClick = { playerService?.togglePlayPause() }, modifier = Modifier.size(32.dp).background(quranColors.primary, CircleShape)) {
-                                    Icon(if (isServicePlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp) // Beautiful visual hierarchy with a slightly larger central Play action
+                                        .clip(CircleShape)
+                                        .background(quranColors.primary)
+                                        .clickable { playerService?.togglePlayPause() },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = if (isServicePlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                        contentDescription = "Toggle Play Pause",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(18.dp)
+                                    )
                                 }
-                                IconButton(onClick = { playerService?.playNext() }, modifier = Modifier.size(32.dp).background(quranColors.surface, CircleShape)) {
-                                    Icon(Icons.Rounded.SkipNext, null, tint = quranColors.textMain, modifier = Modifier.size(16.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .background(quranColors.surface)
+                                        .border(1.dp, quranColors.borderColor.copy(alpha = 0.6f), CircleShape)
+                                        .clickable { playerService?.playNext() },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.SkipNext,
+                                        contentDescription = "Next Surah",
+                                        tint = quranColors.textMain,
+                                        modifier = Modifier.size(16.dp)
+                                    )
                                 }
                             }
                         }
